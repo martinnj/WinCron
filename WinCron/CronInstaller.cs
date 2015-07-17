@@ -4,22 +4,28 @@ using System.Configuration.Install;
 using System.ServiceProcess;
 using System.ComponentModel;
 
-[RunInstaller(true)]
-public class CronInstaller : ServiceInstaller
+namespace WinCron
 {
-    private ServiceProcessInstaller processInstaller;
-    private ServiceInstaller serviceInstaller;
-
-    public CronInstaller()
+    /// <summary>
+    /// Service installer that will add the service to the Windows Service Manager.
+    /// </summary>
+    [RunInstaller(true)]
+    public class CronInstaller : Installer
     {
-        processInstaller = new ServiceProcessInstaller();
-        serviceInstaller = new ServiceInstaller();
+        private ServiceProcessInstaller processInstaller;
+        private ServiceInstaller serviceInstaller;
 
-        processInstaller.Account = ServiceAccount.LocalSystem;
-        serviceInstaller.StartType = ServiceStartMode.Manual; // TODO: Should be set to automatic later.
-        serviceInstaller.ServiceName = "WinCron";
+        public CronInstaller()
+        {
+            processInstaller = new ServiceProcessInstaller();
+            serviceInstaller = new ServiceInstaller();
 
-        Installers.Add(serviceInstaller);
-        Installers.Add(processInstaller);
+            processInstaller.Account = ServiceAccount.LocalSystem;
+            serviceInstaller.StartType = ServiceStartMode.Manual; // TODO: Should be set to automatic later.
+            serviceInstaller.ServiceName = "WinCron";
+
+            Installers.Add(serviceInstaller);
+            Installers.Add(processInstaller);
+        }
     }
 }

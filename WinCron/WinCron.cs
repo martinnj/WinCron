@@ -1,37 +1,44 @@
 ﻿using System;
-using System.Threading;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Configuration.Install;
 using System.ServiceProcess;
 
-public class CronService : ServiceBase
+namespace WinCron
 {
-    private CronJob job;
-    private Timer stateTimer;
-    private TimerCallback timerDelegate;
-
-    public CronService()
+    public class CronService : ServiceBase
     {
-        this.ServiceName = "WinCron";
-        this.CanStop = true;
-        this.CanPauseAndContinue = false;
-        this.AutoLog = true;
-    }
 
-    protected override void OnStart(string[] args)
-    {
-        // do startup stuff
-        job = new CronJob();
-        timerDelegate = new TimerCallback(job.ExecuteJob);
-        stateTimer = new Timer(timerDelegate, null, 1000, 1000);
-    }
+        public CronService()
+        {
+            this.ServiceName = "WinCron";
+            this.CanStop = true;
+            this.CanPauseAndContinue = false;
 
-    protected override void OnStop()
-    {
-        // do shutdown stuff
-        stateTimer.Dispose();
-    }
+            //Setup logging
+            this.AutoLog = false;
 
-    public static void Main()
-    {
-        System.ServiceProcess.ServiceBase.Run(new CronService());
+            ((ISupportInitialize)this.EventLog).BeginInit();
+            if (!EventLog.SourceExists(this.ServiceName))
+            {
+                EventLog.CreateEventSource(this.ServiceName, "Application");
+            }
+            ((ISupportInitialize)this.EventLog).EndInit();
+
+            this.EventLog.Source = this.ServiceName;
+            this.EventLog.Log = "Application";
+        }
+
+        protected override void OnStart(string[] args)
+        {
+            // do startup stuff
+            EventLog.WriteEntry("Starting WinCron service.");
+        }
+
+        protected override void OnStop()
+        {
+            // do shutdown stuff
+            EventLog.WriteEntry("Stopping WinCron service.");
+        }
     }
 }
