@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,6 +14,8 @@ namespace WinCron
     {
         private string[] timeParts;
         private string commandString;
+        private string command;
+        private string[] commandArgs;
 
         /// <summary>
         /// Constructor for the CronJob class, parses a string representing a line the the crontab file.
@@ -25,11 +28,58 @@ namespace WinCron
             timeParts = parts.Take(5).ToArray<string>();
             commandString = string.Join(" ", parts.Skip(5));
 
+            var cmdParser = new CommandParser();
+            var commandParts = cmdParser.Parse(commandString);
+            command = commandParts.Take(1).ToString();
+            commandArgs = commandParts.Skip(1).ToArray();
+
         }
 
-        public object ExecuteJob()
+        /// <summary>
+        /// Executes the job without writing log messages.
+        /// </summary>
+        public void ExecuteJob()
         {
-            return null;
+            Process job = new Process();
+            job.StartInfo.CreateNoWindow = true;
+            job.StartInfo.UseShellExecute = false;
+            job.StartInfo.RedirectStandardError = true;
+            job.StartInfo.RedirectStandardOutput = true;
+            job.StartInfo.RedirectStandardInput = true;
+            job.StartInfo.FileName = command;
+            job.StartInfo.Arguments = string.Join(" ", commandArgs);
+
+            job.Start();
+            job.WaitForExit();
+        }
+
+        /// <summary>
+        /// Executes the command in question and adds appropriate event log messages with the output and error.
+        /// </summary>
+        /// <param name="log"></param>
+        public void ExecuteJob(EventLog log)
+        {
+            lock (log)
+            {
+                log.WriteEntry("Starting command: " + commandString);
+            }
+            Process job = new Process();
+            job.StartInfo.CreateNoWindow = true;
+            job.StartInfo.UseShellExecute = false;
+            job.StartInfo.RedirectStandardError = true;
+            job.StartInfo.RedirectStandardOutput = true;
+            job.StartInfo.RedirectStandardInput = true;
+            job.StartInfo.FileName = command;
+            job.StartInfo.Arguments = string.Join(" ", commandArgs);
+
+            job.Start();
+            job.WaitForExit();
+            lock (log)
+            {
+                log.WriteEntry("Finished command: " + commandString + Environment.NewLine +
+                               "Standard Out: " + job.StandardOutput.ReadToEnd() + Environment.NewLine +
+                               "Standard Error: " + job.StandardError.ReadToEnd());
+            }
         }
 
 
@@ -164,5 +214,73 @@ namespace WinCron
             List
         }
         #endregion
+    }
+
+    /// <summary>
+    /// Parser used to split a commandString into the file/program to run and it's arguments.
+    /// </summary>
+    public class CommandParser
+    {
+        /// <summary>
+        /// The command string given to the parser.
+        /// </summary>
+        public string commandString;
+        /// <summary>
+        /// String representing the command.
+        /// </summary>
+        public string command;
+        /// <summary>
+        /// List of strings representing the arguments.
+        /// </summary>
+        public List<String> commandArgs;
+
+        public CommandParser()
+        {
+            commandString = "";
+            command = "";
+            commandArgs = new List<string>();
+        }
+
+        /// <summary>
+        /// Parses a command string into the command and any arguments.
+        /// </summary>
+        /// <param name="input">the string to parse.</param>
+        /// <returns>A list of strings, the first entry is the command, the rest are arguments.</returns>
+        public List<String> Parse(string input)
+        {
+            command = input;
+            char[] commandAr = command.ToCharArray();
+            bool inQuote = false;
+            List<String> parts = new List<string>();
+            string temp = "";
+
+            foreach (char c in commandAr)
+            {
+                if ( c == '"' )
+                {
+                    inQuote = !inQuote;
+                    temp = temp + c;
+                    continue;
+                }
+                else if ( c == ' '  && !inQuote)
+                {
+                    parts.Add(temp);
+                    temp = "";
+                    continue;
+                }
+                else if ( c == ' ' && inQuote)
+                {
+                    temp = temp + c;
+                    continue;
+                }
+                else
+                {
+                    temp = temp + c;
+                    continue;
+                }
+            }
+            parts.Add(temp);
+            return parts;
+        }
     }
 }
